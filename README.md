@@ -1,2 +1,2 @@
 # practicalmachinelearning
-PLEASE NOTE: To view the html file please go to [link](https://github.com/gmakarenkov/practicalmachinelearning.git)
+PLEASE NOTE: To view the html file please go to [link](http://gmakarenkov.github.io/practicalmachinelearning)
