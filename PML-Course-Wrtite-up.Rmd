@@ -1,0 +1,91 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "German M."
+date: "Friday, February 26, 2016"
+output: html_document
+---
+
+###Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+
+### Data Processing
+
+Download and read csv the data if it does not exist yet.
+```{r, echo=FALSE}
+
+setwd("/Users/gmakarenkov/Coursera/Practical Machine Learning/rediction Assignment Writeup")
+
+if(!file.exists("./data")){dir.create("./data")} 
+
+if(!file.exists("./data/pml-training.csv"))
+        {
+        fileUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+        download.file(fileUrl, destfile="./data/pml-training.csv", method = "curl")
+        }
+
+if(!file.exists("./data/pml-testing.csv"))
+        {
+        fileUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+        download.file(fileUrl, destfile="./data/pml-testing.csv", method = "curl")
+        }
+```
+
+```{r, echo=TRUE}
+train_set <- read.csv(file = './data/pml-training.csv', na.strings = c('NA', ' ', '', '#DIV/0!'))
+test_set <- read.csv(file = './data/pml-testing.csv', na.strings = c('NA',' ', '', '#DIV/0!'))
+```
+###Exploratory analysis and Variables selection
+The training data set has 19622 observations and 160 variables:
+```{r, echo=FALSE}
+dim(train_set)
+```
+First 7 contrains descriptive data that is not related to the quality of the excersice measurements: observation number, user name, time stamp and etc. In addition to that there are 100 variables that contains NA values. Thus, I decide to remove 107 variables out of 160 from the training data set and leave only 53:
+```{r, echo=TRUE}
+index <- colnames(train_set[colSums(is.na(train_set)) == 0])[c(8:60)]
+index
+```
+The last variable is the variable that needs to be predicted - "classe" and it containes 5 classifications of how excercise was performed: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+The data in all variables except the "classe" needs to be coerce to ensure the proper functioning of the Machine Learning algorithms:
+```{r, echo=TRUE}
+train_set <- train_set[index]
+train_set[index[c(1:52)]] <- as.numeric(as.matrix(train_set[index[c(1:52)]]))
+```
+Let's apply same data transformation to the test scenarios:
+```{r, echo=TRUE}
+index_tst <- colnames(test_set[colSums(is.na(test_set)) == 0])[c(8:60)]
+test_set <- test_set[index_tst]
+colnames(test_set)[53] <- 'classe' #rename last column to "classe"
+test_set[index_tst[c(1:52)]] <- as.numeric(as.matrix(test_set[index_tst[c(1:52)]]))
+```
+###Modeling
+For cross-validation purposes let's split training data 70 by 30 to assess the model and accuracy of the prediction:
+```{r, echo=TRUE}
+library(caret, quietly = TRUE)
+library(randomForest, quietly = TRUE)
+set.seed(1)
+
+idx_train <- createDataPartition(y=train_set$classe, p=0.70, list=FALSE)
+train <- train_set[idx_train,index]; 
+cross_val <- train_set[-idx_train,index]
+dim(train); dim(cross_val)
+```
+Let's fit model using RainForest as it is known for its accuracy and use cross-validation dataset to estimate the accuracy of the model and the out of sample error.
+
+```{r, echo=TRUE}
+modfit <- train(classe ~ ., data = train,  method = "rf", 
+                trControl = trainControl(method = "cv", number = 5))
+
+pred <- predict(modfit,cross_val)
+conf_mtx <- confusionMatrix(pred,cross_val$classe)
+conf_mtx
+```
+
+The expected accuracy of the model is 99.47% and the expected out of sample error is 0.53%
+This prediction model should provide good results for the 20 test cases:
+
+```{r, echo=TRUE}
+testfit <- predict(modfit,test_set[,index])
+testfit
+```
